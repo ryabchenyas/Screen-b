@@ -1,7 +1,6 @@
 package com.screenbridge
 
-import android.app.Activity
-import android.media.projection.MediaProjectionManager
+import android.net.Uri
 import android.os.Bundle
 import androidx.activity.ComponentActivity
 import androidx.activity.compose.setContent
@@ -25,17 +24,16 @@ import androidx.compose.ui.Modifier
 import androidx.compose.ui.unit.dp
 
 class MainActivity : ComponentActivity() {
-    private var status by mutableStateOf("Ожидание запуска")
-    private var hasScreenPermission by mutableStateOf(false)
+    private var status by mutableStateOf("Выбери изображение для теста")
+    private var selectedImage by mutableStateOf<Uri?>(null)
 
-    private val screenCaptureLauncher =
-        registerForActivityResult(ActivityResultContracts.StartActivityForResult()) { result ->
-            if (result.resultCode == Activity.RESULT_OK && result.data != null) {
-                hasScreenPermission = true
-                status = "Разрешение получено. Следующий этап — захват и передача изображения."
+    private val imagePicker =
+        registerForActivityResult(ActivityResultContracts.GetContent()) { uri ->
+            selectedImage = uri
+            status = if (uri != null) {
+                "Изображение выбрано. Следующий этап — подключить анализ."
             } else {
-                hasScreenPermission = false
-                status = "Доступ к экрану не предоставлен."
+                "Выбор изображения отменён."
             }
         }
 
@@ -50,32 +48,37 @@ class MainActivity : ComponentActivity() {
                     ) {
                         Text("Screen Bridge", style = MaterialTheme.typography.headlineLarge)
                         Spacer(modifier = Modifier.height(8.dp))
-                        Text("Передача изображения с телефона помощнику")
+                        Text("Выбери один снимок из галереи — приложение пока ничего не отправляет.")
                         Spacer(modifier = Modifier.height(28.dp))
                         Text("Состояние: $status")
+                        Spacer(modifier = Modifier.height(12.dp))
+                        Text(
+                            if (selectedImage == null) "Файл не выбран"
+                            else "Выбран файл: ${selectedImage.toString().substringAfterLast('/')}",
+                            style = MaterialTheme.typography.bodyMedium
+                        )
                         Spacer(modifier = Modifier.height(20.dp))
                         Button(
-                            onClick = {
-                                val manager = getSystemService(MEDIA_PROJECTION_SERVICE)
-                                    as MediaProjectionManager
-                                screenCaptureLauncher.launch(manager.createScreenCaptureIntent())
-                            },
+                            onClick = { imagePicker.launch("image/*") },
                             modifier = Modifier.fillMaxWidth()
                         ) {
-                            Text(if (hasScreenPermission) "Запросить доступ снова" else "Начать")
+                            Text("Выбрать изображение")
                         }
                         Spacer(modifier = Modifier.height(12.dp))
                         OutlinedButton(
                             onClick = {
-                                hasScreenPermission = false
-                                status = "Остановлено. Активная передача пока не запускается."
+                                selectedImage = null
+                                status = "Выбор сброшен."
                             },
                             modifier = Modifier.fillMaxWidth()
-                        ) { Text("Остановить") }
+                        ) {
+                            Text("Сбросить")
+                        }
                         Spacer(modifier = Modifier.height(24.dp))
                         Text(
-                            "Это ранний прототип: сейчас проверяется системное разрешение Android. " +
-                                "Передача видео и подключение к помощнику будут добавлены следующими этапами.",
+                            "Это промежуточная версия: выбранное изображение остаётся на телефоне. " +
+                                "Отправка в OpenAI и голосовое описание будут подключены отдельно, " +
+                                "после проверки выбора файла.",
                             style = MaterialTheme.typography.bodySmall
                         )
                     }
